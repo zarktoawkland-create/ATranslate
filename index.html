@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 沉浸式翻译 Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #030712;
+            --glass-bg: rgba(17, 24, 39, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-highlight: rgba(255, 255, 255, 0.03);
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.4);
+            --secondary: #a855f7;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --danger: #ef4444;
+            --success: #10b981;
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --radius-sm: 12px;
+            --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            --font-sans: 'Inter', sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        /* 动态背景 */
+        .ambient-light {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.15), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.15), transparent 25%);
+            filter: blur(60px);
+            animation: pulse 10s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; transform: scale(1); }
+            100% { opacity: 0.8; transform: scale(1.1); }
+        }
+
+        /* 主容器 */
+        .app-container {
+            width: 100%;
+            max-width: 1000px;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            height: 100vh;
+        }
+
+        /* 顶部导航 */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 0.5rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            letter-spacing: -0.02em;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.8rem;
+            align-items: center;
+        }
+
+        /* 模型选择按钮 */
+        .model-trigger-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            padding: 0.5rem 1rem;
+            border-radius: 100px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .model-trigger-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .model-trigger-btn .dot {
+            width: 6px;
+            height: 6px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .icon-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* 翻译主区域 */
+        .translation-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            position: relative;
+        }
+
+        /* 语言控制栏 */
+        .lang-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 0.5rem;
+            border-radius: 100px;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            margin: 0 auto;
+            width: fit-content;
+            min-width: 320px;
+        }
+
+        .lang-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            padding: 0.75rem 1.5rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 100px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            max-width: 150px;
+        }
+        
+        .lang-btn span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .lang-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .swap-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+
+        .swap-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.1);
+            transform: rotate(180deg);
+        }
+
+        /* 输入/输出卡片 */
+        .cards-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .card:focus-within {
+            border-color: rgba(99, 102, 241, 0.3);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+        }
+
+        .card-header {
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .card-label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .card-actions button {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.4rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .card-actions button:hover {
+            color: var(--text-main);
+            background: rgba(255,255,255,0.1);
+        }
+
+        .card-body {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 300px;
+        }
+
+        textarea {
+            flex: 1;
+            width: 100%;
+            background: transparent;
+            border: none;
+            resize: none;
+            padding: 1.5rem;
+            color: var(--text-main);
+            font-size: 1.1rem;
+            font-family: var(--font-sans);
+            line-height: 1.7;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        textarea::placeholder {
+            color: rgba(148, 163, 184, 0.4);
+        }
+
+        /* 译文区域容器 */
+        .output-wrapper {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            max-height: 600px;
+            overflow: hidden;
+        }
+
+        .output-content {
+            display: none; /* 默认隐藏渲染层 */
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            font-size: 1.1rem;
+            line-height: 1.7;
+            color: var(--text-main);
+        }
+
+        /* 编辑模式下的 textarea */
+        .output-edit-area {
+            display: block; /* 默认显示编辑层 */
+            flex: 1;
+            width: 100%;
+            background: transparent;
+            border: none;
+            resize: none;
+            padding: 1.5rem;
+            color: var(--text-main);
+            font-size: 1.1rem;
+            font-family: var(--font-sans);
+            line-height: 1.7;
+            overflow-y: auto;
+        }
+
+        /* 预览模式状态 */
+        .output-wrapper.preview-mode .output-content {
+            display: block;
+        }
+        
+        .output-wrapper.preview-mode .output-edit-area {
+            display: none;
+        }
+
+        /* Markdown Styles */
+        .output-content p { margin-bottom: 1em; }
+        .output-content code { 
+            background: rgba(0,0,0,0.3); 
+            padding: 0.2em 0.4em; 
+            border-radius: 4px; 
+            font-family: 'Menlo', monospace;
+            font-size: 0.9em;
+            color: #e2e8f0;
+        }
+        .output-content pre {
+            background: #0f172a;
+            padding: 1em;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin-bottom: 1em;
+            border: 1px solid var(--glass-border);
+        }
+        .output-content pre code {
+            background: transparent;
+            padding: 0;
+            color: inherit;
+        }
+
+        /* 底部操作栏 */
+        .action-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding-top: 1rem;
+            position: relative;
+        }
+
+        .translate-btn {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            height: 56px;
+            padding: 0 3rem;
+            border-radius: 100px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 20px -4px var(--primary-glow);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .translate-btn::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(255,255,255,0.2), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .translate-btn:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 12px 30px -8px var(--primary-glow);
+        }
+
+        .translate-btn:hover::after {
+            opacity: 1;
+        }
+
+        .translate-btn:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        .translate-btn.stop {
+            background: var(--glass-bg);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            box-shadow: none;
+        }
+        
+        .translate-btn.stop:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* 模态框 */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background: #1e293b;
+            width: 90%;
+            max-width: 600px;
+            max-height: 85vh;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            flex-direction: column;
+            transform: translateY(20px) scale(0.95);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .modal-overlay.active .modal {
+            transform: translateY(0) scale(1);
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: var(--text-main);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* 搜索框 */
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--glass-border);
+            padding: 0.8rem 1rem 0.8rem 2.5rem;
+            border-radius: var(--radius-sm);
+            color: var(--text-main);
+            font-size: 1rem;
+        }
+
+        .search-box svg {
+            position: absolute;
+            left: 0.8rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        /* 自定义语言添加区 */
+        .custom-lang-input {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .custom-lang-input input {
+            flex: 1;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--glass-border);
+            padding: 0.6rem 1rem;
+            border-radius: var(--radius-sm);
+            color: var(--text-main);
+            font-size: 0.9rem;
+        }
+
+        .add-btn {
+            background: rgba(99, 102, 241, 0.2);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 0 1rem;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .add-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* 语言分组 */
+        .lang-group-title {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.8rem;
+            margin-top: 0.5rem;
+        }
+
+        .lang-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 0.8rem;
+        }
+
+        .lang-option {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid transparent;
+            padding: 0.8rem 0.5rem;
+            border-radius: var(--radius-sm);
+            color: var(--text-main);
+            cursor: pointer;
+            text-align: center;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .lang-option:hover {
+            background: rgba(255,255,255,0.08);
+            transform: translateY(-2px);
+        }
+
+        .lang-option.active {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: var(--primary);
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .lang-option .delete-tag {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            font-size: 10px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .lang-option:hover .delete-tag {
+            opacity: 1;
+        }
+        
+        .lang-option .delete-tag:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        /* 模型列表 */
+        .model-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .model-item {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid transparent;
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            color: var(--text-main);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        .model-item:hover {
+            background: rgba(255,255,255,0.08);
+        }
+
+        .model-item.active {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--primary);
+        }
+
+        .model-item .model-name {
+            font-weight: 500;
+        }
+
+        .model-item .model-check {
+            color: var(--primary);
+            opacity: 0;
+        }
+
+        .model-item.active .model-check {
+            opacity: 1;
+        }
+
+        /* 设置表单 */
+        .settings-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .form-group input {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--glass-border);
+            padding: 0.8rem;
+            border-radius: var(--radius-sm);
+            color: var(--text-main);
+            font-size: 0.95rem;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .app-container { padding: 1rem; height: auto; min-height: 100vh; }
+            .cards-container { grid-template-columns: 1fr; }
+            .translation-wrapper { height: auto; }
+            .card { min-height: 250px; }
+            .lang-controls { width: 100%; min-width: 0; }
+            .model-trigger-btn span { display: none; }
+        }
+
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+    </style>
+</head>
+<body>
+
+<div class="ambient-light"></div>
+
+<div class="app-container">
+    <header>
+        <div class="logo">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#grad1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <defs>
+                    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                <path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9"/>
+            </svg>
+            AI Translate Pro
+        </div>
+        <div class="header-actions">
+            <button class="model-trigger-btn" id="modelTriggerBtn">
+                <div class="dot"></div>
+                <span id="currentModelName">加载中...</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <button class="icon-btn" id="settingsBtn" title="设置">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <div class="translation-wrapper">
+        <div class="lang-controls">
+            <button class="lang-btn" id="sourceLangBtn">
+                <span>自动检测</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <button class="swap-btn" id="swapLangBtn" title="交换语言">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7 16V4M7 4L3 8M7 4L11 8M17 8v12M17 20l4-4M17 20l-4-4"/>
+                </svg>
+            </button>
+            <button class="lang-btn" id="targetLangBtn">
+                <span>中文</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+        </div>
+
+        <div class="cards-container">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-label">原文</span>
+                    <div class="card-actions">
+                        <button id="clearBtn" title="清空">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <textarea id="sourceText" placeholder="输入文字开始翻译..."></textarea>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-label">译文</span>
+                    <div class="card-actions">
+                        <button id="previewBtn" title="预览 Markdown" style="margin-right: 0.5rem;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                        <button id="copyBtn" title="复制">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="output-wrapper" id="outputWrapper">
+                        <div id="outputRender" class="output-content"></div>
+                        <textarea id="outputText" class="output-edit-area" placeholder="翻译结果将显示在这里..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <button class="translate-btn" id="translateBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+                <span>开始翻译</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 语言选择模态框 -->
+<div class="modal-overlay" id="langModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title" id="modalTitle">选择语言</span>
+            <button class="close-btn" onclick="closeModal('langModal')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="search-box">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="langSearch" placeholder="搜索语言...">
+            </div>
+            
+            <div class="custom-lang-section">
+                <div class="lang-group-title">自定义语言</div>
+                <div class="custom-lang-input">
+                    <input type="text" id="customLangInput" placeholder="输入语言名称 (如: 喵星语, 傲娇语气)">
+                    <button class="add-btn" id="addCustomLangBtn">添加</button>
+                </div>
+            </div>
+
+            <div id="langListContainer">
+                <!-- 语言列表由 JS 生成 -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 模型选择模态框 -->
+<div class="modal-overlay" id="modelModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">选择模型</span>
+            <div style="display:flex;gap:0.5rem;align-items:center">
+                <button class="icon-btn" id="refreshModelsBtn" title="刷新模型" style="width:32px;height:32px">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                </button>
+                <button class="close-btn" onclick="closeModal('modelModal')">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+        </div>
+        <div class="modal-body">
+            <div class="search-box">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="modelSearch" placeholder="搜索模型...">
+            </div>
+            <div class="model-list" id="modelList">
+                <!-- 模型列表由 JS 生成 -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 设置模态框 -->
+<div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">设置</span>
+            <button class="close-btn" onclick="closeModal('settingsModal')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="settings-form">
+                <div class="form-group">
+                    <label>API 地址</label>
+                    <input type="text" id="apiUrl" value="https://sta1n.zeabur.app/v1">
+                </div>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" id="apiKey" value="sk-flEAXi2ehxo9ea5IbX5mqv0GNuQPBWy3X46KQ6K4rCWYEmr4">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 基础语言数据
+    const baseLanguages = [
+        { code: 'auto', name: '自动检测', type: 'basic', sourceOnly: true },
+        { code: 'zh', name: '中文', type: 'basic' },
+        { code: 'en', name: '英语', type: 'basic' },
+        { code: 'ja', name: '日语', type: 'basic' },
+        { code: 'ko', name: '韩语', type: 'basic' },
+        { code: 'fr', name: '法语', type: 'basic' },
+        { code: 'de', name: '德语', type: 'basic' },
+        { code: 'es', name: '西班牙语', type: 'basic' },
+        { code: 'ru', name: '俄语', type: 'basic' },
+        { code: 'pt', name: '葡萄牙语', type: 'basic' },
+        { code: 'it', name: '意大利语', type: 'basic' },
+        { code: 'nl', name: '荷兰语', type: 'basic' },
+        { code: 'pl', name: '波兰语', type: 'basic' },
+        { code: 'tr', name: '土耳其语', type: 'basic' },
+        { code: 'ar', name: '阿拉伯语', type: 'basic' },
+        { code: 'hi', name: '印地语', type: 'basic' },
+        { code: 'vi', name: '越南语', type: 'basic' },
+        { code: 'th', name: '泰语', type: 'basic' },
+        { code: 'id', name: '印尼语', type: 'basic' },
+        { code: 'sv', name: '瑞典语', type: 'basic' },
+        { code: 'da', name: '丹麦语', type: 'basic' },
+        { code: 'fi', name: '芬兰语', type: 'basic' },
+        { code: 'el', name: '希腊语', type: 'basic' },
+        { code: 'cs', name: '捷克语', type: 'basic' },
+        { code: 'ro', name: '罗马尼亚语', type: 'basic' },
+        { code: 'hu', name: '匈牙利语', type: 'basic' },
+        { code: 'uk', name: '乌克兰语', type: 'basic' },
+        { code: 'ms', name: '马来语', type: 'basic' },
+        { code: 'fa', name: '波斯语', type: 'basic' },
+        { code: 'he', name: '希伯来语', type: 'basic' },
+        { code: 'no', name: '挪威语', type: 'basic' },
+        { code: 'sk', name: '斯洛伐克语', type: 'basic' },
+        { code: 'bg', name: '保加利亚语', type: 'basic' },
+        
+        // 方言/古语
+        { code: 'wyw', name: '文言文', type: 'fun' },
+        { code: 'yue', name: '粤语', type: 'fun' },
+        { code: 'sc', name: '四川话', type: 'fun' },
+        { code: 'db', name: '东北话', type: 'fun' },
+        
+        // 网络/虚构/趣味
+        { code: 'mars', name: '火星文', type: 'fun' },
+        { code: 'emoji', name: 'Emoji', type: 'fun' },
+        { code: 'neet', name: 'NEET语', type: 'fun' },
+        { code: 'chuni', name: '中二病语', type: 'fun' },
+        { code: 'luxun', name: '鲁迅体', type: 'fun' },
+        { code: 'crap', name: '废话文学', type: 'fun' },
+        { code: 'yygq', name: '阴阳怪气', type: 'fun' },
+        { code: 'dragon', name: '龙语 (Skyrim)', type: 'fun' },
+        { code: 'elvish', name: '精灵语', type: 'fun' },
+        { code: 'klingon', name: '克林贡语', type: 'fun' },
+        { code: 'cyber', name: '赛博朋克黑话', type: 'fun' },
+        { code: 'morse', name: '摩斯电码', type: 'fun' },
+        { code: 'binary', name: '二进制代码', type: 'fun' }
+    ];
+
+    // 状态管理
+    let state = {
+        sourceLang: 'auto',
+        targetLang: 'zh',
+        isTranslating: false,
+        isPreviewMode: false,
+        currentModalType: null,
+        customLangs: [],
+        currentModel: 'gemini-3-flash', // 默认模型
+        availableModels: []
+    };
+
+    let abortController = null;
+
+    // DOM 元素
+    const els = {
+        sourceLangBtn: document.getElementById('sourceLangBtn'),
+        targetLangBtn: document.getElementById('targetLangBtn'),
+        swapLangBtn: document.getElementById('swapLangBtn'),
+        sourceText: document.getElementById('sourceText'),
+        outputWrapper: document.getElementById('outputWrapper'),
+        outputRender: document.getElementById('outputRender'),
+        outputText: document.getElementById('outputText'), // 这是隐藏的 textarea
+        translateBtn: document.getElementById('translateBtn'),
+        settingsBtn: document.getElementById('settingsBtn'),
+        modelTriggerBtn: document.getElementById('modelTriggerBtn'),
+        currentModelName: document.getElementById('currentModelName'),
+        langModal: document.getElementById('langModal'),
+        settingsModal: document.getElementById('settingsModal'),
+        modelModal: document.getElementById('modelModal'),
+        langListContainer: document.getElementById('langListContainer'),
+        langSearch: document.getElementById('langSearch'),
+        modelList: document.getElementById('modelList'),
+        modelSearch: document.getElementById('modelSearch'),
+        modalTitle: document.getElementById('modalTitle'),
+        apiUrl: document.getElementById('apiUrl'),
+        apiKey: document.getElementById('apiKey'),
+        refreshModelsBtn: document.getElementById('refreshModelsBtn'),
+        clearBtn: document.getElementById('clearBtn'),
+        copyBtn: document.getElementById('copyBtn'),
+        previewBtn: document.getElementById('previewBtn'),
+        customLangInput: document.getElementById('customLangInput'),
+        addCustomLangBtn: document.getElementById('addCustomLangBtn')
+    };
+
+    // 初始化
+    function init() {
+        loadCustomLangs();
+        updateLangButtons();
+        fetchModels();
+        
+        // 事件监听
+        els.sourceLangBtn.onclick = () => openLangModal('source');
+        els.targetLangBtn.onclick = () => openLangModal('target');
+        els.swapLangBtn.onclick = swapLanguages;
+        els.settingsBtn.onclick = () => openModal('settingsModal');
+        els.modelTriggerBtn.onclick = () => {
+            renderModelList();
+            openModal('modelModal');
+            setTimeout(() => els.modelSearch.focus(), 100);
+        };
+        els.translateBtn.onclick = handleTranslateClick;
+        els.refreshModelsBtn.onclick = fetchModels;
+        els.clearBtn.onclick = () => { els.sourceText.value = ''; els.sourceText.focus(); };
+        els.copyBtn.onclick = copyResult;
+        els.previewBtn.onclick = togglePreview;
+        els.addCustomLangBtn.onclick = addCustomLang;
+        
+        els.langSearch.oninput = (e) => renderLangList(e.target.value);
+        els.modelSearch.oninput = (e) => renderModelList(e.target.value);
+        
+        // 点击遮罩关闭
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) closeModal(overlay.id);
+            });
+        });
+    }
+
+    // 预览切换
+    function togglePreview() {
+        state.isPreviewMode = !state.isPreviewMode;
+        
+        if (state.isPreviewMode) {
+            // 进入预览模式：更新渲染内容并显示
+            const text = els.outputText.value;
+            els.outputRender.innerHTML = text ? marked.parse(text) : '<span style="color:var(--text-muted)">无内容</span>';
+            els.outputWrapper.classList.add('preview-mode');
+            els.previewBtn.style.color = 'var(--primary)';
+            els.previewBtn.style.background = 'rgba(99, 102, 241, 0.1)';
+        } else {
+            // 退出预览模式：显示编辑框
+            els.outputWrapper.classList.remove('preview-mode');
+            els.previewBtn.style.color = '';
+            els.previewBtn.style.background = '';
+            els.outputText.focus();
+        }
+    }
+
+    // 自定义语言管理
+    function loadCustomLangs() {
+        const saved = localStorage.getItem('custom_langs');
+        if (saved) {
+            state.customLangs = JSON.parse(saved);
+        }
+    }
+
+    function addCustomLang() {
+        const name = els.customLangInput.value.trim();
+        if (!name) return;
+        
+        if (state.customLangs.some(l => l.name === name) || baseLanguages.some(l => l.name === name)) {
+            alert('该语言已存在');
+            return;
+        }
+
+        const newLang = {
+            code: 'custom_' + Date.now(),
+            name: name,
+            type: 'custom'
+        };
+
+        state.customLangs.push(newLang);
+        localStorage.setItem('custom_langs', JSON.stringify(state.customLangs));
+        
+        els.customLangInput.value = '';
+        renderLangList(els.langSearch.value);
+        selectLanguage(newLang.code);
+    }
+
+    function removeCustomLang(e, code) {
+        e.stopPropagation();
+        state.customLangs = state.customLangs.filter(l => l.code !== code);
+        localStorage.setItem('custom_langs', JSON.stringify(state.customLangs));
+        
+        if (state.sourceLang === code) state.sourceLang = 'auto';
+        if (state.targetLang === code) state.targetLang = 'zh';
+        updateLangButtons();
+        renderLangList(els.langSearch.value);
+    }
+
+    // 语言选择逻辑
+    function openLangModal(type) {
+        state.currentModalType = type;
+        els.modalTitle.textContent = type === 'source' ? '选择源语言' : '选择目标语言';
+        els.langSearch.value = '';
+        renderLangList();
+        openModal('langModal');
+        setTimeout(() => els.langSearch.focus(), 100);
+    }
+
+    function getAllLanguages() {
+        return [...state.customLangs, ...baseLanguages];
+    }
+
+    function renderLangList(filter = '') {
+        els.langListContainer.innerHTML = '';
+        const isSource = state.currentModalType === 'source';
+        const currentCode = isSource ? state.sourceLang : state.targetLang;
+        const allLangs = getAllLanguages();
+
+        const groups = [
+            { id: 'custom', title: '自定义', filter: l => l.type === 'custom' },
+            { id: 'fun', title: '趣味 & 虚构', filter: l => l.type === 'fun' },
+            { id: 'basic', title: '常用语言', filter: l => l.type === 'basic' }
+        ];
+
+        groups.forEach(group => {
+            const groupLangs = allLangs.filter(l => {
+                if (!isSource && l.sourceOnly) return false;
+                if (filter && !l.name.toLowerCase().includes(filter.toLowerCase())) return false;
+                return group.filter(l);
+            });
+
+            if (groupLangs.length > 0) {
+                const titleEl = document.createElement('div');
+                titleEl.className = 'lang-group-title';
+                titleEl.textContent = group.title;
+                els.langListContainer.appendChild(titleEl);
+
+                const gridEl = document.createElement('div');
+                gridEl.className = 'lang-grid';
+                
+                groupLangs.forEach(lang => {
+                    const btn = document.createElement('div');
+                    btn.className = `lang-option ${lang.code === currentCode ? 'active' : ''}`;
+                    btn.textContent = lang.name;
+                    btn.onclick = () => selectLanguage(lang.code);
+
+                    if (lang.type === 'custom') {
+                        const delBtn = document.createElement('div');
+                        delBtn.className = 'delete-tag';
+                        delBtn.innerHTML = '×';
+                        delBtn.onclick = (e) => removeCustomLang(e, lang.code);
+                        btn.appendChild(delBtn);
+                    }
+
+                    gridEl.appendChild(btn);
+                });
+                
+                els.langListContainer.appendChild(gridEl);
+            }
+        });
+        
+        if (els.langListContainer.children.length === 0) {
+            els.langListContainer.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:2rem;">未找到匹配语言，您可以尝试上方自定义添加</div>';
+        }
+    }
+
+    function selectLanguage(code) {
+        if (state.currentModalType === 'source') {
+            state.sourceLang = code;
+        } else {
+            state.targetLang = code;
+        }
+        updateLangButtons();
+        closeModal('langModal');
+    }
+
+    function swapLanguages() {
+        // 交换语言代码
+        if (state.sourceLang === 'auto') {
+            // 如果源是自动，交换后：源=旧目标，目标=中文(默认)
+            state.sourceLang = state.targetLang;
+            state.targetLang = 'zh';
+        } else {
+            [state.sourceLang, state.targetLang] = [state.targetLang, state.sourceLang];
+        }
+        updateLangButtons();
+        
+        // 交换内容 (双向互换)
+        const sourceVal = els.sourceText.value;
+        const targetVal = els.outputText.value; // 取 textarea 的值(源码)
+        
+        els.sourceText.value = targetVal;
+        els.outputText.value = sourceVal;
+        
+        // 如果在预览模式，更新渲染
+        if (state.isPreviewMode) {
+            els.outputRender.innerHTML = sourceVal ? marked.parse(sourceVal) : '';
+        }
+    }
+
+    function updateLangButtons() {
+        const allLangs = getAllLanguages();
+        const sLang = allLangs.find(l => l.code === state.sourceLang) || baseLanguages[0];
+        const tLang = allLangs.find(l => l.code === state.targetLang) || baseLanguages[1];
+        
+        els.sourceLangBtn.querySelector('span').textContent = sLang.name;
+        els.targetLangBtn.querySelector('span').textContent = tLang.name;
+    }
+
+    // 模型管理
+    async function fetchModels() {
+        const btn = els.refreshModelsBtn;
+        const icon = btn.querySelector('svg');
+        icon.classList.add('spin');
+        els.currentModelName.textContent = "加载中...";
+        
+        try {
+            const response = await fetch(`${els.apiUrl.value.replace(/\/+$/, '')}/models`, {
+                headers: { 'Authorization': `Bearer ${els.apiKey.value}` }
+            });
+            const data = await response.json();
+            
+            state.availableModels = data.data || [];
+            state.availableModels.sort((a, b) => a.id.localeCompare(b.id));
+            
+            // 默认选中 gemini-3-flash
+            const targetModel = 'gemini-3-flash';
+            if (state.availableModels.some(m => m.id === targetModel)) {
+                state.currentModel = targetModel;
+            } else if (state.availableModels.length > 0) {
+                state.currentModel = state.availableModels[0].id;
+            } else {
+                state.currentModel = '';
+            }
+            
+            updateModelDisplay();
+            renderModelList();
+
+        } catch (e) {
+            console.error(e);
+            els.currentModelName.textContent = "获取失败";
+        } finally {
+            icon.classList.remove('spin');
+        }
+    }
+
+    function updateModelDisplay() {
+        els.currentModelName.textContent = state.currentModel || "未选择模型";
+    }
+
+    function renderModelList(filter = '') {
+        els.modelList.innerHTML = '';
+        const filtered = state.availableModels.filter(m => 
+            !filter || m.id.toLowerCase().includes(filter.toLowerCase())
+        );
+
+        if (filtered.length === 0) {
+            els.modelList.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:1rem;">未找到模型</div>';
+            return;
+        }
+
+        filtered.forEach(model => {
+            const item = document.createElement('div');
+            item.className = `model-item ${model.id === state.currentModel ? 'active' : ''}`;
+            item.innerHTML = `
+                <span class="model-name">${model.id}</span>
+                <svg class="model-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            `;
+            item.onclick = () => selectModel(model.id);
+            els.modelList.appendChild(item);
+        });
+    }
+
+    function selectModel(id) {
+        state.currentModel = id;
+        updateModelDisplay();
+        closeModal('modelModal');
+    }
+
+    // 模态框通用
+    window.openModal = (id) => document.getElementById(id).classList.add('active');
+    window.closeModal = (id) => document.getElementById(id).classList.remove('active');
+
+    // API 交互
+    async function handleTranslateClick() {
+        if (state.isTranslating) {
+            if (abortController) abortController.abort();
+            return;
+        }
+
+        const text = els.sourceText.value.trim();
+        if (!text) return els.sourceText.focus();
+
+        if (!state.currentModel) {
+            alert('请先选择一个模型');
+            return;
+        }
+
+        state.isTranslating = true;
+        abortController = new AbortController();
+        
+        els.translateBtn.classList.add('stop');
+        els.translateBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg><span>停止生成</span>`;
+        
+        // 准备开始
+        els.outputText.value = '';
+        els.outputRender.innerHTML = '<span style="color:var(--text-muted)">正在思考...</span>';
+        
+        // 如果开启了预览，确保显示渲染层；否则显示编辑层
+        if (state.isPreviewMode) {
+            els.outputWrapper.classList.add('preview-mode');
+        } else {
+            els.outputWrapper.classList.remove('preview-mode');
+            // 在编辑模式下，也显示一个 loading 占位符在 textarea 里？
+            // 不，保持为空即可，或者显示 "正在思考..."
+            els.outputText.placeholder = "正在思考...";
+        }
+
+        try {
+            const allLangs = getAllLanguages();
+            const sLang = allLangs.find(l => l.code === state.sourceLang);
+            const tLang = allLangs.find(l => l.code === state.targetLang);
+            
+            let systemPrompt = `You are a professional translator. Translate the following text from ${sLang.name} to ${tLang.name}.`;
+            
+            if (tLang.type === 'fun' || tLang.type === 'custom') {
+                systemPrompt += ` Capture the style, tone, and nuances of ${tLang.name} perfectly. Be creative and immersive.`;
+            }
+            
+            systemPrompt += ` Output ONLY the translated text without any explanations.`;
+
+            const response = await fetch(`${els.apiUrl.value.replace(/\/+$/, '')}/chat/completions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${els.apiKey.value}`
+                },
+                body: JSON.stringify({
+                    model: state.currentModel,
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: text }
+                    ],
+                    stream: true
+                }),
+                signal: abortController.signal
+            });
+
+            if (!response.ok) throw new Error('API Error');
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullText = "";
+            els.outputRender.innerHTML = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                        try {
+                            const json = JSON.parse(line.substring(6));
+                            const content = json.choices[0]?.delta?.content || "";
+                            if (content) {
+                                fullText += content;
+                                // 实时更新 textarea
+                                els.outputText.value = fullText;
+                                // 实时更新渲染层 (无论是否显示，都更新，以便切换时有内容)
+                                els.outputRender.innerHTML = marked.parse(fullText);
+                                // 自动滚动
+                                els.outputWrapper.scrollTop = els.outputWrapper.scrollHeight;
+                            }
+                        } catch (e) {}
+                    }
+                }
+            }
+
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                els.outputRender.innerHTML = `<span style="color:var(--danger)">翻译出错: ${error.message}</span>`;
+            }
+        } finally {
+            state.isTranslating = false;
+            abortController = null;
+            els.translateBtn.classList.remove('stop');
+            els.translateBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span>开始翻译</span>`;
+            els.outputText.placeholder = "翻译结果将显示在这里...";
+        }
+    }
+
+    function copyResult() {
+        const text = els.outputText.value; // 复制源码
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+            const original = els.copyBtn.innerHTML;
+            els.copyBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+            setTimeout(() => els.copyBtn.innerHTML = original, 2000);
+        });
+    }
+
+    // Run
+    init();
+
+</script>
+</body>
+</html>
